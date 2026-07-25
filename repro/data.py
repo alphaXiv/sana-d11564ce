@@ -32,14 +32,15 @@ def _decode_video(path):
 
 
 def _resize_frames(frames):
-    import cv2
+    from PIL import Image
 
     out = []
     for f in frames:
         h, w = f.shape[:2]
         s = min(h, w)
         y0, x0 = (h - s) // 2, (w - s) // 2
-        out.append(cv2.resize(f[y0 : y0 + s, x0 : x0 + s], (C.RES, C.RES), interpolation=cv2.INTER_AREA))
+        img = Image.fromarray(f[y0 : y0 + s, x0 : x0 + s]).resize((C.RES, C.RES), Image.BILINEAR)
+        out.append(np.asarray(img))
     return np.stack(out)
 
 
@@ -126,24 +127,22 @@ def ensure_data():
     if os.path.exists(MARKER):
         return
     lock_dir = os.path.join(C.DATA_DIR, "prep.lockdir")
-    try:
-        os.mkdir(lock_dir)
-        owner = True
-    except FileExistsError:
-        owner = False
-    if owner:
+    t0 = time.time()
+    while not os.path.exists(MARKER):
+        try:
+            os.mkdir(lock_dir)  # atomic on NFS; re-attempted so a crashed owner's release is picked up
+        except FileExistsError:
+            if time.time() - t0 > 3 * 3600:
+                raise RuntimeError("timed out waiting for data prep by another worker")
+            print("[data] waiting for another worker's prep...", flush=True)
+            time.sleep(15)
+            continue
         try:
             _prepare()
         except BaseException:
             os.rmdir(lock_dir)
             raise
-    else:
-        t0 = time.time()
-        while not os.path.exists(MARKER):
-            if time.time() - t0 > 3 * 3600:
-                raise RuntimeError("timed out waiting for data prep by another worker")
-            print("[data] waiting for another worker's prep...", flush=True)
-            time.sleep(30)
+        break
 
 
 def load_split(split):
