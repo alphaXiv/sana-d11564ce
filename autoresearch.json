@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.21553",
+  "title": "SANA-Video 2.0 hybrid attention at reduced scale",
+  "description": "At 190M-parameter scale on UCF-101, the 25%-softmax hybrid recovers 86-94% of full softmax attention's quality gap over pure-linear attention (held-out loss and I3D FVD, seed-robust) while its speedup over softmax grows to 1.94x at 65k tokens; AttnRes routing reuse and matched-step rank gains reproduce qualitatively, with smaller ablation magnitudes than reported.",
+  "verdict": "partially-reproduced",
+  "reportPath": "reports/sana-video-2-repro/report.md",
+  "notebookPath": "notebooks/sana_video2_repro.py",
+  "compute": {
+    "backend": "kubernetes",
+    "gpuModel": "NVIDIA RTX PRO 6000 Blackwell",
+    "gpuCount": 16,
+    "wallHours": 11.7
+  }
+}

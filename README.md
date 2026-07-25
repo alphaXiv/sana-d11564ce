@@ -1,3 +1,57 @@
+# Reproduction: SANA-Video 2.0 hybrid attention at reduced scale
+
+> **This fork reproduces, claim by claim, the central architecture claims of
+> [SANA-Video 2.0 (arXiv 2607.21553)](https://arxiv.org/abs/2607.21553) at reduced scale.**
+> Verdict: **partially reproduced** — the 25%-softmax hybrid recovers 86–94% of full softmax
+> attention's quality gap over pure-linear attention (held-out loss + I3D FVD on UCF-101,
+> replicated at 2 seeds) while its speedup over full softmax grows to **1.94× at 65k tokens**;
+> AttnRes routing-reuse and matched-step rank gains reproduce qualitatively (+20% deep-layer
+> state rank at step 5000; 29–50% routing mass on completed blocks) but with smaller ablation
+> magnitudes than reported (−31% vs −82–91%) and a real +42% latency overhead in our unfused
+> implementation.
+>
+> **What was run:** four matched 190M-parameter video DiTs (pure-linear / hybrid-25% /
+> full-softmax / hybrid+AttnRes) trained from scratch on UCF-101 (official split 1,
+> 16×64×64 pixel clips, flow matching, class-conditional), 5.8h × 4 GPUs each, plus a
+> seed-1 replication at 3.25h, a 4-way latency benchmark (2k→65k tokens), and a
+> checkpoint-based FVD evaluation. Substitutions vs the paper: 190M pixel-space instead of
+> 5B latent, UCF-101 instead of proprietary data, class instead of text conditioning,
+> single-stage training, eager PyTorch.
+>
+> **Compute:** operator-provided Kubernetes cluster (`orx exp run --backend k8s`),
+> NVIDIA RTX PRO 6000 Blackwell, peak **16 concurrent GPUs**, ~**11.7 h** elapsed
+> (2026-07-25). Paper number vs observed (headline): paper reports hybrids beating both
+> pure extremes on proxy val loss and 1.16–2.01× softmax→hybrid speedup growth; we observe
+> hybrid within 4% of softmax val loss (0.0570 vs 0.0549) vs pure-linear 0.0700, and
+> 1.0→1.94× speedup growth over 2k→65k tokens.
+>
+> 📄 **[Detailed report](reports/sana-video-2-repro/report.md)** (figures + per-claim analysis) ·
+> 📓 **[Interactive marimo notebook](notebooks/sana_video2_repro.py)** (self-contained, all data embedded) ·
+> [![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/alphaXiv/sana-d11564ce/blob/main/notebooks/sana_video2_repro.py)
+
+## Experiment log
+
+All experiments run the same fixed command on their branch (`orx exp status`: `bash .orx/run.sh`);
+the branch's committed `repro/config.py` selects the variant. `main` was not run as an
+experiment (publication surface).
+
+| Branch | Purpose | Run command | Outcome | Compute |
+|---|---|---|---|---|
+| [`orx/baseline-pure-linear-video-dit-ucf-101-16x64x64`](../../tree/orx/baseline-pure-linear-video-dit-ucf-101-16x64x64) | Pure-linear control, seed 0 | `bash .orx/run.sh` | val 0.0700 / FVD 1091.9 (29.8k steps) | 4 GPU × 6.5h |
+| [`orx/hybrid-25-softmax-anchors-3-1`](../../tree/orx/hybrid-25-softmax-anchors-3-1) | 25% softmax anchors, seed 0 | `bash .orx/run.sh` | val 0.0570 / FVD 575.8 (30k steps; final-eval phase lost to NCCL hang) | 4 GPU × 7.5h |
+| [`orx/full-softmax-control`](../../tree/orx/full-softmax-control) | Full-softmax control, seed 0 | `bash .orx/run.sh` | val 0.0549 / FVD 513.6 (31.8k steps) | 4 GPU × 6.5h |
+| [`orx/hybrid-attnres-block-span-8`](../../tree/orx/hybrid-attnres-block-span-8) | Hybrid + AttnRes S=8, seed 0 + rank/routing/ablation probes | `bash .orx/run.sh` | val 0.0569 / FVD 643.1 (17k steps); routing reuse 29–50%, entry-layer ablation −31% | 4 GPU × 6.5h |
+| [`orx/latency-scaling-benchmark-all-archs`](../../tree/orx/latency-scaling-benchmark-all-archs) | Forward latency 2k→65k tokens, all 4 archs | `bash .orx/run.sh` | hybrid 1.0→1.94× speedup over softmax; linear near-linear | 1 GPU × 2 min |
+| [`orx/fvd-eval-from-checkpoints-i3d-fix`](../../tree/orx/fvd-eval-from-checkpoints-i3d-fix) | FVD from EMA ckpts (i3d contiguous fix) | `bash .orx/run.sh` | FVDs 1091.9 / 575.8 / 513.6 / 643.1 | 1 GPU × 40 min |
+| [`orx/pure-linear-seed-1-3-25h`](../../tree/orx/pure-linear-seed-1-3-25h) | Seed-1 replication | `bash .orx/run.sh` | val 0.0717 / FVD 1288.0 (16.5k steps) | 4 GPU × 3.9h |
+| [`orx/hybrid-25-seed-1-3-25h`](../../tree/orx/hybrid-25-seed-1-3-25h) | Seed-1 replication | `bash .orx/run.sh` | val 0.0574 / FVD 690.4 (16.8k steps) | 4 GPU × 3.9h |
+| [`orx/full-softmax-seed-1-3-25h`](../../tree/orx/full-softmax-seed-1-3-25h) | Seed-1 replication | `bash .orx/run.sh` | val 0.0559 / FVD 654.6 (17.9k steps) | 4 GPU × 3.9h |
+| [`orx/hybrid-attnres-seed-1-3-25h`](../../tree/orx/hybrid-attnres-seed-1-3-25h) | Seed-1 AttnRes | `bash .orx/run.sh` | stalled at step ~8k (NCCL hang); curve tracks seed 0 | 4 GPU × 3.5h |
+
+Dataset: UCF-101 via HF mirror `quchenyuan/UCF101-ZIP` (official recognition split 1); cached on a shared PVC. FVD: StyleGAN-V I3D torchscript (`flateon/FVD-I3D-torchscript`), 1024 generated videos with paired noise seeds vs the 7562-clip test split.
+
+---
+
 <p align="center" style="border-radius: 10px">
   <img src="https://huggingface.co/datasets/Efficient-Large-Model/Sana-assets/resolve/main/asset/logo.png" width="35%" alt="logo"/>
 </p>
