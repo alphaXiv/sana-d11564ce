@@ -14,12 +14,12 @@ spec:
           workingDir: /workspace
           resources:
             requests:
-              nvidia.com/gpu: "4"
-              cpu: "30"
-              memory: "220Gi"
+              nvidia.com/gpu: "1"
+              cpu: "16"
+              memory: "128Gi"
             limits:
-              nvidia.com/gpu: "4"
-              memory: "220Gi"
+              nvidia.com/gpu: "1"
+              memory: "128Gi"
           volumeMounts:
             - name: shared
               mountPath: /shared

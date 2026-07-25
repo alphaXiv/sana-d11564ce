@@ -11,9 +11,9 @@ export OMP_NUM_THREADS=8
 MODE=$(python -c "from repro import config; print(config.MODE)")
 NGPU=$(python -c "import torch; print(torch.cuda.device_count())")
 echo "MODE=$MODE NGPU=$NGPU"
-if [ "$MODE" = "bench" ]; then
-  python -m repro.run
-else
+if [ "$MODE" = "train" ]; then
   torchrun --standalone --nproc_per_node="$NGPU" -m repro.run
+else
+  python -m repro.run
 fi
 echo "=== run.sh finished ==="

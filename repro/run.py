@@ -8,6 +8,10 @@ def main():
         from . import bench
 
         bench.main()
+    elif cfg.MODE == "fvdeval":
+        from . import fvdeval
+
+        fvdeval.main()
     else:
         from . import train
 
