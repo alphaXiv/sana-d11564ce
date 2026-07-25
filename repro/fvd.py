@@ -38,7 +38,7 @@ def extract_features(videos, model, name, device, bs=32):
     feats = []
     for i in range(0, len(videos), bs):
         v = torch.from_numpy(videos[i : i + bs]).to(device)
-        v = v.permute(0, 4, 1, 2, 3).float()  # (B,3,T,H,W)
+        v = v.permute(0, 4, 1, 2, 3).contiguous().float()  # (B,3,T,H,W); i3d jit needs contiguous
         if name == "i3d":
             f = model(v, rescale=True, resize=True, return_features=True)
         else:
