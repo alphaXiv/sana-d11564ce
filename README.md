@@ -1,3 +1,63 @@
+# Reproduction: SANA-Video 2.0 — Hybrid Linear Attention with Attention Residuals (arXiv 2607.21553)
+
+> **This fork's `main` is the publication surface for an independent, reduced-scale reproduction** of the
+> two central claims of *SANA-Video 2.0* (weights/implementation unreleased; architecture reconstructed
+> from the paper inside this released Sana repository). The upstream Sana README follows below.
+
+[![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/alphaXiv/sana-d11564ce/blob/main/notebooks/sana_video2_repro.py)
+
+**Claims tested.** (1) A 25% softmax-anchor hybrid video DiT beats a matched pure-linear DiT on held-out
+denoising and generation quality while scaling better than full softmax on long sequences; (2) block-span-8
+Attention Residuals (AttnRes) raise deep-layer effective rank and reuse completed-block representations
+without erasing the hybrid's latency advantage.
+
+**What was done.** Four 190M-parameter video DiTs — identical except for their attention layers
+(pure-linear / hybrid-25% / full-softmax / hybrid+AttnRes) — trained from scratch on public UCF-101
+(16x64x64 pixel clips, class-conditional flow matching) with matched wall-clock budgets, at two seeds,
+plus a 2k→65k-token forward-latency benchmark and rank/routing probes. Compute: operator's Kubernetes
+cluster, NVIDIA RTX PRO 6000 Blackwell, peak 16 concurrent GPUs, ~11.7 h elapsed (2026-07-25).
+
+**Assessment: partially reproduced** (claim 1 fully, claim 2 qualitatively).
+
+| Result | Paper | Observed (this repro) |
+|---|---|---|
+| Hybrid vs pure-linear, held-out loss | hybrids beat pure linear in proxy studies | −19% at seed 0 (0.0570 vs 0.0700) and seed 1 (0.0574 vs 0.0717); ~86% of the gap to softmax closed |
+| Hybrid vs pure-linear, generation (FVD, I3D) | higher VBench quality | FVD 576 vs 1092 (seed 0), 690 vs 1288 (seed 1) — closes 89–94% of the gap to softmax (514 / 655) |
+| Hybrid speedup over softmax grows with length | 1.16× (480p) → 2.01× (1080p) | 1.0× @4k → **1.94× @65k tokens** |
+| AttnRes deep-layer routing mass on completed blocks | ~56% (attention branch) | 29–50% (+ dominant current-block mass; init only 12–14%) |
+| AttnRes deep-layer rank increase | ~+12% (same-ckpt probe) | +20% at matched step 5000; gap closes late in training |
+| Block-entry ablation rank drop | −82–91% | −31% at t=0.5, same localization (router is a reconstruction from prose) |
+| AttnRes latency | minimal with fused kernels | +42% over hybrid in eager PyTorch, still 1.36× faster than softmax @65k |
+
+**Downscaling / substitutions:** 190M pixel-space class-conditional models on UCF-101 (paper: 5B/14B latent
+text-conditioned on a proprietary corpus); single-stage training; eager PyTorch (scaling *shapes* comparable,
+latency *constants* not). Two of nine training runs lost their final-eval phase to an NCCL hang (metrics up
+to the hang intact; FVD recovered from checkpoints).
+
+- 📄 **Detailed report:** [`reports/sana-video-2-repro/report.md`](reports/sana-video-2-repro/report.md)
+- 📓 **Interactive notebook** (all result data embedded): [`notebooks/sana_video2_repro.py`](notebooks/sana_video2_repro.py)
+
+### Experiment log
+
+All experiments ran via `orx exp run --backend k8s`; every node runs the same fixed command `bash .orx/run.sh`
+(per-branch `repro/config.py` selects the variant). 4×GPU training pods, 1×GPU eval/bench pods.
+
+| Branch / experiment | Purpose | Run command | Outcome | Compute |
+|---|---|---|---|---|
+| [`orx/baseline-pure-linear-video-dit-ucf-101-16x64x64`](https://github.com/alphaXiv/sana-d11564ce/tree/orx/baseline-pure-linear-video-dit-ucf-101-16x64x64) | pure-linear control (seed 0) | `bash .orx/run.sh` | val 0.0700 / FVD 1091.9 (29.8k steps) | 4 GPU, 5.8 h |
+| [`orx/hybrid-25-softmax-anchors-3-1`](https://github.com/alphaXiv/sana-d11564ce/tree/orx/hybrid-25-softmax-anchors-3-1) | hybrid 3:1 (seed 0) | `bash .orx/run.sh` | val 0.0570 @30k / FVD 575.8; final-eval phase lost to NCCL hang | 4 GPU, 5.8 h |
+| [`orx/full-softmax-control`](https://github.com/alphaXiv/sana-d11564ce/tree/orx/full-softmax-control) | softmax upper anchor (seed 0) | `bash .orx/run.sh` | val 0.0549 / FVD 513.6 (31.8k steps) | 4 GPU, 5.8 h |
+| [`orx/hybrid-attnres-block-span-8`](https://github.com/alphaXiv/sana-d11564ce/tree/orx/hybrid-attnres-block-span-8) | hybrid + AttnRes (seed 0) + rank/routing/ablation probes | `bash .orx/run.sh` | val 0.0569 / FVD 643.1 (17.0k steps; slower unfused router) | 4 GPU, 5.8 h |
+| [`orx/latency-scaling-benchmark-all-archs`](https://github.com/alphaXiv/sana-d11564ce/tree/orx/latency-scaling-benchmark-all-archs) | 2k→65k-token latency, all 4 archs | `bash .orx/run.sh` | linear 426 / hybrid 603 / attnres 859 / softmax 1170 ms @65k | 1 GPU, ~2 min |
+| [`orx/fvd-eval-from-checkpoints-i3d-fix`](https://github.com/alphaXiv/sana-d11564ce/tree/orx/fvd-eval-from-checkpoints-i3d-fix) | FVD for all seed-0 ckpts (I3D contiguous fix) | `bash .orx/run.sh` | all four seed-0 FVDs + sample grids | 1 GPU, ~40 min |
+| [`orx/pure-linear-seed-1-3-25h`](https://github.com/alphaXiv/sana-d11564ce/tree/orx/pure-linear-seed-1-3-25h) | seed-1 replication | `bash .orx/run.sh` | val 0.0717 / FVD 1288.0 | 4 GPU, 3.25 h |
+| [`orx/hybrid-25-seed-1-3-25h`](https://github.com/alphaXiv/sana-d11564ce/tree/orx/hybrid-25-seed-1-3-25h) | seed-1 replication | `bash .orx/run.sh` | val 0.0574 / FVD 690.4 | 4 GPU, 3.25 h |
+| [`orx/full-softmax-seed-1-3-25h`](https://github.com/alphaXiv/sana-d11564ce/tree/orx/full-softmax-seed-1-3-25h) | seed-1 replication | `bash .orx/run.sh` | val 0.0559 / FVD 654.6 | 4 GPU, 3.25 h |
+| [`orx/hybrid-attnres-seed-1-3-25h`](https://github.com/alphaXiv/sana-d11564ce/tree/orx/hybrid-attnres-seed-1-3-25h) | seed-1 AttnRes | `bash .orx/run.sh` | partial: val curve to step 8000 tracks seed 0; run stalled (NCCL hang), cancelled | 4 GPU, ~3 h |
+| `main` | — | Not run as an experiment (publication surface) | — | — |
+
+---
+
 # Reproduction: SANA-Video 2.0 hybrid attention at reduced scale
 
 > **This fork reproduces, claim by claim, the central architecture claims of
