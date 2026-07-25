@@ -7,13 +7,13 @@ app = marimo.App(width="medium")
 @app.cell
 def _():
     import marimo as mo
+
     return (mo,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     # Reproducing SANA-Video 2.0's hybrid attention at reduced scale
 
     [SANA-Video 2.0 (arXiv 2607.21553)](https://arxiv.org/abs/2607.21553) builds a video
@@ -29,8 +29,7 @@ def _(mo):
     **All result data below is embedded in this notebook** — logged during the Kubernetes runs —
     so nothing needs to be re-run. The full report lives at
     [`reports/sana-video-2-repro/report.md`](https://github.com/alphaXiv/sana-d11564ce/blob/main/reports/sana-video-2-repro/report.md).
-    """
-    )
+    """)
     return
 
 
@@ -47,15 +46,13 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Claim 1a — held-out denoising loss
 
     Held-out flow-matching loss (mean over 10 noise buckets, 2048 UCF-101 test clips with
     fixed noise), evaluated every 2000 steps. The pure-linear model plateaus well above the
     hybrid and softmax models, which are nearly indistinguishable — at both seeds.
-    """
-    )
+    """)
     return
 
 
@@ -127,8 +124,7 @@ def _(BUCKETS, COLORS, LABELS, mo, plt):
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Claim 1b — generation quality (FVD)
 
     Frechet Video Distance with the standard StyleGAN-V I3D features: 1024 generated videos
@@ -136,8 +132,7 @@ def _(mo):
     7562-clip UCF-101 test split. The hybrid closes ~89-94% of the linear-to-softmax gap.
     Absolute values are high (small pixel-space models, hours of training) — the relative
     ordering is the evidence.
-    """
-    )
+    """)
     return
 
 
@@ -163,21 +158,19 @@ def _(FVD, plt):
     _ax3.grid(alpha=0.25, lw=0.5, axis="y")
     _ax3.legend(fontsize=8.5, frameon=False)
     _fig3
-    return (np,)
+    return
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Claim 1c — long-sequence scaling
 
     Forward latency of the 190M DiT (bf16, batch 1, eager PyTorch, one RTX PRO 6000 Blackwell)
     from 2,048 to 65,536 tokens. Pure linear grows near-linearly; full softmax shows its
     quadratic term; the hybrid's speedup over softmax **grows with sequence length**,
     reaching 1.94x at 65k tokens — the trend the paper reports across resolutions.
-    """
-    )
+    """)
     return
 
 
@@ -216,8 +209,7 @@ def _(BENCH, plt):
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Claim 2 — AttnRes routing reuse
 
     The AttnRes router mixes, at every layer, three kinds of sources: the initial token
@@ -226,13 +218,12 @@ def _(mo):
     maximum noise. At block-entry layers (8, 16 — dotted) the partial sum resets, and mass
     shifts sharply onto completed-block summaries; in the deepest block only ~12-14% of mass
     remains on the initial embedding.
-    """
-    )
+    """)
     return
 
 
 @app.cell
-def _(ROUTING, np, plt):
+def _(ROUTING, plt):
     _entries = [r for r in ROUTING if r["t"] > 0.9]
     _layers = [e["layer"] for e in _entries]
     _init = [e["init"] for e in _entries]
@@ -262,8 +253,7 @@ def _(ROUTING, np, plt):
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Summary
 
     | Claim | Assessment |
@@ -279,8 +269,7 @@ def _(mo):
     proprietary corpus; eager PyTorch latency constants; the AttnRes router is a
     reconstruction from the paper's prose. Full details, sample grids, and limitations:
     [report](https://github.com/alphaXiv/sana-d11564ce/blob/main/reports/sana-video-2-repro/report.md).
-    """
-    )
+    """)
     return
 
 
