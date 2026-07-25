@@ -3,5 +3,5 @@
 MODE = "train"  # "train" | "bench"
 ATTN = "linear"  # "linear" | "hybrid" | "softmax"
 ATTNRES = False
-SEED = 0
-RUN_NAME = "pure-linear-s0"
+SEED = 1
+RUN_NAME = "pure-linear-s1"
