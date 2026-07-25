@@ -10,6 +10,6 @@
     "backend": "kubernetes",
     "gpuModel": "NVIDIA RTX PRO 6000 Blackwell",
     "gpuCount": 16,
-    "wallHours": 11.7
+    "wallHours": 11.46
   }
 }
